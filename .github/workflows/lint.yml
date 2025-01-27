@@ -1,4 +1,4 @@
-name: Go
+name: Lint
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
 
-  build:
+  Lint:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -18,8 +18,6 @@ jobs:
       with:
         go-version-file: ./go.mod
 
-    - name: Build
-      run: go build -v ./...
+    - name: Lint
+      run: make lint
 
-    - name: Test
-      run: go test -v ./...
