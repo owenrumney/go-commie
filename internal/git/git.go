@@ -76,7 +76,7 @@ func (g *Git) Commit() error {
 func (g *Git) listFiles(status git.Status) (stagedFiles, unstagedFiles, untrackedFiles []string) {
 
 	for path, st := range status {
-		if st.Staging != git.Unmodified {
+		if st.Staging != git.Unmodified && st.Staging != git.Untracked {
 			file := "\033[32m" + statusMap[st.Staging] + " " + path
 			if st.Staging == git.Renamed {
 				file = file + " -> " + st.Extra
@@ -164,6 +164,7 @@ func (g *Git) getCommitMsgTitle() string {
 	_, prefix, err := ui.ChooseFromList("Choose the appropriate prefix", []string{
 		"feat",
 		"fix",
+		"chore",
 		"docs",
 		"style",
 		"refactor",

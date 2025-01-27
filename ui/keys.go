@@ -42,7 +42,11 @@ func getKeyInput() (keyCode int, err error) {
 			keyCode = int(bytes[0])
 		}
 	}
-	t.Restore()
-	t.Close()
+	if err := t.Restore(); err != nil {
+		return 0, err
+	}
+	if err := t.Close(); err != nil {
+		return 0, err
+	}
 	return
 }
