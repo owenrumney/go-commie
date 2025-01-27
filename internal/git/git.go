@@ -8,6 +8,8 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/owenrumney/go-commie/internal/logger"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 type Git struct {
@@ -89,14 +91,31 @@ func (g *Git) getCommitBody() string {
 }
 
 func (g *Git) getCommitMsgTitle() string {
+	suggestedTitle, err := g.getBranchName()
+	if err != nil {
+		g.log.Debugf("Error getting branch name: %s", err)
+		suggestedTitle = ""
+	}
+
+	if suggestedTitle != "" {
+		suggestedTitle = strings.ReplaceAll(suggestedTitle, "-", " ")
+		titleParts := strings.Split(suggestedTitle, "/")
+
+		titleCases := cases.Title(language.English)
+
+		if len(titleParts) > 1 {
+			suggestedTitle = fmt.Sprintf("%s: %s", titleParts[0], titleCases.String(titleParts[1]))
+		}
+
+	}
+
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("\n Enter commit message body: ")
+	fmt.Printf("\n Enter commit message body, enter to choose selected [%s]: ", suggestedTitle)
 	title, _ := reader.ReadString('\n')
 
 	title = strings.TrimSpace(title)
 	if title == "" {
-		fmt.Println("Commit message title cannot be empty")
-		os.Exit(1)
+		title = suggestedTitle
 	}
 
 	return title

@@ -2,7 +2,10 @@ module github.com/owenrumney/go-commie
 
 go 1.23.4
 
-require github.com/go-git/go-git/v5 v5.13.2
+require (
+	github.com/go-git/go-git/v5 v5.13.2
+	golang.org/x/text v0.21.0
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
