@@ -13,12 +13,12 @@ import (
 
 var statusMap = map[git.StatusCode]string{
 	git.Unmodified: " ",
-	git.Modified:   "modified",
-	git.Added:      "   added",
-	git.Deleted:    " deleted",
-	git.Renamed:    " renamed",
-	git.Copied:     "  copied",
-	git.Untracked:  "     new",
+	git.Modified:   "modified:",
+	git.Added:      "added:   ",
+	git.Deleted:    "deleted: ",
+	git.Renamed:    "renamed: ",
+	git.Copied:     "copied:  ",
+	git.Untracked:  "new:     ",
 }
 
 type Git struct {
@@ -51,22 +51,33 @@ func (g *Git) Commit() error {
 		g.log.Fatal(err)
 	}
 
-	g.listFiles(status)
+	stagedFiles, unstagedFiles, untrackedFiles := g.listFiles(status)
 
-	if g.hasStaged(status) {
+	if len(stagedFiles) > 0 {
+		fmt.Printf("\nStaged files:\n  %s", strings.Join(stagedFiles, "\n  "))
+	}
+	if len(unstagedFiles) > 0 {
+		fmt.Printf("\nUnstaged files:\n  %s", strings.Join(unstagedFiles, "\n  "))
+	}
+	if len(untrackedFiles) > 0 {
+		fmt.Printf("\nUntracked files:\n  %s", strings.Join(untrackedFiles, "\n  "))
+	}
+
+	fmt.Println("\n\n")
+
+	if len(stagedFiles) > 0 {
 		return g.addCommit()
 	}
-	return fmt.Errorf("no staged files to commit")
+
+	fmt.Println("No files staged for commit")
+	return nil
 }
 
-func (g *Git) listFiles(status git.Status) {
-
-	var stagedFiles []string
-	var unstagedFiles []string
+func (g *Git) listFiles(status git.Status) (stagedFiles, unstagedFiles, untrackedFiles []string) {
 
 	for path, st := range status {
 		if st.Staging != git.Unmodified {
-			file := "\033[32m" + statusMap[st.Staging] + ":\t" + path
+			file := "\033[32m" + statusMap[st.Staging] + " " + path
 			if st.Staging == git.Renamed {
 				file = file + " -> " + st.Extra
 			}
@@ -74,8 +85,11 @@ func (g *Git) listFiles(status git.Status) {
 			stagedFiles = append(stagedFiles, file)
 		}
 
-		if st.Worktree != git.Unmodified {
-			file := "\033[31m" + statusMap[st.Worktree] + ":\t" + path
+		if st.Worktree == git.Untracked {
+			file := "\033[33m" + statusMap[st.Worktree] + " " + path + "\033[0m"
+			untrackedFiles = append(untrackedFiles, file)
+		} else if st.Worktree != git.Unmodified {
+			file := "\033[31m" + statusMap[st.Worktree] + " " + path
 			if st.Worktree == git.Renamed {
 				file = file + " -> " + st.Extra
 			}
@@ -84,19 +98,7 @@ func (g *Git) listFiles(status git.Status) {
 		}
 	}
 
-	fmt.Printf("\nStaged files:\n\t%s\n", strings.Join(stagedFiles, "\n\t"))
-	fmt.Printf("\nUnstaged files:\n\t%s\n\n", strings.Join(unstagedFiles, "\n\t"))
-}
-
-func (g *Git) hasStaged(status git.Status) bool {
-
-	for _, st := range status {
-		if st.Staging != git.Unmodified {
-			return true
-		}
-	}
-
-	return false
+	return stagedFiles, unstagedFiles, untrackedFiles
 }
 
 func (g *Git) addCommit() error {
