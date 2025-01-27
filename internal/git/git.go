@@ -63,7 +63,7 @@ func (g *Git) Commit() error {
 		fmt.Printf("\nUntracked files:\n  %s", strings.Join(untrackedFiles, "\n  "))
 	}
 
-	fmt.Println("\n\n")
+	fmt.Printf("\n\n")
 
 	if len(stagedFiles) > 0 {
 		return g.addCommit()
