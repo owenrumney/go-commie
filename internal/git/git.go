@@ -1,16 +1,25 @@
 package git
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/go-git/go-git/v5"
+
 	"github.com/owenrumney/go-commie/internal/logger"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
+	"github.com/owenrumney/go-commie/ui"
 )
+
+var statusMap = map[git.StatusCode]string{
+	git.Unmodified: " ",
+	git.Modified:   "modified:",
+	git.Added:      "added:   ",
+	git.Deleted:    "deleted: ",
+	git.Renamed:    "renamed: ",
+	git.Copied:     "copied:  ",
+	git.Untracked:  "new:     ",
+}
 
 type Git struct {
 	*git.Repository
@@ -31,7 +40,65 @@ func New(log *logger.Log) (*Git, error) {
 }
 
 func (g *Git) Commit() error {
-	return g.addCommit()
+
+	wt, err := g.Repository.Worktree()
+	if err != nil {
+		g.log.Fatal(err)
+	}
+
+	status, err := wt.Status()
+	if err != nil {
+		g.log.Fatal(err)
+	}
+
+	stagedFiles, unstagedFiles, untrackedFiles := g.listFiles(status)
+
+	if len(stagedFiles) > 0 {
+		fmt.Printf("\nStaged files:\n  %s", strings.Join(stagedFiles, "\n  "))
+	}
+	if len(unstagedFiles) > 0 {
+		fmt.Printf("\nUnstaged files:\n  %s", strings.Join(unstagedFiles, "\n  "))
+	}
+	if len(untrackedFiles) > 0 {
+		fmt.Printf("\nUntracked files:\n  %s", strings.Join(untrackedFiles, "\n  "))
+	}
+
+	fmt.Printf("\n\n")
+
+	if len(stagedFiles) > 0 {
+		return g.addCommit()
+	}
+
+	fmt.Println("No files staged for commit")
+	return nil
+}
+
+func (g *Git) listFiles(status git.Status) (stagedFiles, unstagedFiles, untrackedFiles []string) {
+
+	for path, st := range status {
+		if st.Staging != git.Unmodified {
+			file := "\033[32m" + statusMap[st.Staging] + " " + path
+			if st.Staging == git.Renamed {
+				file = file + " -> " + st.Extra
+			}
+			file = file + "\033[0m"
+			stagedFiles = append(stagedFiles, file)
+		}
+
+		if st.Worktree == git.Untracked {
+			file := "\033[33m" + statusMap[st.Worktree] + " " + path + "\033[0m"
+			untrackedFiles = append(untrackedFiles, file)
+		} else if st.Worktree != git.Unmodified {
+			file := "\033[31m" + statusMap[st.Worktree] + " " + path
+			if st.Worktree == git.Renamed {
+				file = file + " -> " + st.Extra
+			}
+			file = file + "\033[0m"
+			unstagedFiles = append(unstagedFiles, file)
+		}
+	}
+
+	return stagedFiles, unstagedFiles, untrackedFiles
 }
 
 func (g *Git) addCommit() error {
@@ -63,31 +130,7 @@ func (g *Git) addCommit() error {
 }
 
 func (g *Git) getCommitBody() string {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("\n Enter commit body with 2 empty lines to complete to complete: ")
-	var lines []string
-	consecutiveEmptyLines := 0
-
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			fmt.Println("Error reading input: ", err)
-			break
-		}
-
-		line = strings.TrimSpace(line)
-		if line == "" {
-			consecutiveEmptyLines++
-		} else {
-			consecutiveEmptyLines = 0
-		}
-		if consecutiveEmptyLines == 2 {
-			break
-		}
-		lines = append(lines, line)
-	}
-
-	return strings.Join(lines, "\n")
+	return ui.GetMultilineInput("Enter commit body")
 }
 
 func (g *Git) getCommitMsgTitle() string {
@@ -101,24 +144,37 @@ func (g *Git) getCommitMsgTitle() string {
 		suggestedTitle = strings.ReplaceAll(suggestedTitle, "-", " ")
 		titleParts := strings.Split(suggestedTitle, "/")
 
-		titleCases := cases.Title(language.English)
-
 		if len(titleParts) > 1 {
-			suggestedTitle = fmt.Sprintf("%s: %s", titleParts[0], titleCases.String(titleParts[1]))
+			title := titleParts[1]
+			suggestedTitle = fmt.Sprintf("%s: %s", titleParts[0],
+				strings.ToUpper(string(title[0]))+strings.ToLower(title[1:]))
 		}
 
 	}
 
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Printf("\n Enter commit message body, enter to choose selected [%s]: ", suggestedTitle)
-	title, _ := reader.ReadString('\n')
-
-	title = strings.TrimSpace(title)
-	if title == "" {
-		title = suggestedTitle
+	useSuggested, err := ui.YesNoQuestion(fmt.Sprintf(`Use suggested title "%s"`, suggestedTitle), true)
+	if err != nil {
+		g.log.Fatal(err)
 	}
 
-	return title
+	if useSuggested {
+		return suggestedTitle
+	}
+
+	_, prefix, err := ui.ChooseFromList("Choose the appropriate prefix", []string{
+		"feat",
+		"fix",
+		"docs",
+		"style",
+		"refactor",
+		"test",
+	})
+	if err != nil {
+		g.log.Fatal(err)
+	}
+
+	title := ui.GetInput("Enter commit title")
+	return fmt.Sprintf("%s: %s", prefix, title)
 }
 
 func (g *Git) getBranchName() (string, error) {
