@@ -4,7 +4,7 @@ go 1.23.4
 
 require (
 	github.com/go-git/go-git/v5 v5.13.2
-	golang.org/x/text v0.21.0
+	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942
 )
 
 require (
