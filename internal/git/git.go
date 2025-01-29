@@ -137,7 +137,7 @@ func (g *Git) getCommitMsgTitle() string {
 	suggestedTitle, err := g.getBranchName()
 	if err != nil {
 		g.log.Debugf("Error getting branch name: %s", err)
-		suggestedTitle = ""
+		suggestedTitle = "feat: initial commit"
 	}
 
 	if suggestedTitle != "" {
