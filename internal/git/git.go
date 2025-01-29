@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -23,7 +24,8 @@ var statusMap = map[git.StatusCode]string{
 
 type Git struct {
 	*git.Repository
-	log *logger.Log
+	signingKey *string
+	log        *logger.Log
 }
 
 func New(log *logger.Log) (*Git, error) {
@@ -36,7 +38,20 @@ func New(log *logger.Log) (*Git, error) {
 		return nil, err
 	}
 
-	return &Git{repo, log}, nil
+	cfg, err := repo.Config()
+	if err != nil {
+		return nil, err
+	}
+
+	var signingKey string
+	if cfg.Raw.HasSection("user") {
+		user := cfg.Raw.Section("user")
+		if user.HasOption("signingKey") {
+			signingKey = user.Option("signingKey")
+		}
+	}
+
+	return &Git{repo, &signingKey, log}, nil
 }
 
 func (g *Git) Commit() error {
@@ -122,6 +137,12 @@ func (g *Git) addCommit() error {
 	obj, err := g.Repository.CommitObject(commit)
 	if err != nil {
 		return err
+	}
+
+	if *g.signingKey != "" {
+		if err := g.signCommit(); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	println(obj.Hash.String())
