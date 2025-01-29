@@ -2,8 +2,8 @@ package git
 
 import (
 	"fmt"
+	"log"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/go-git/go-git/v5"
@@ -140,8 +140,9 @@ func (g *Git) addCommit() error {
 	}
 
 	if *g.signingKey != "" {
-		g.log.Debugf("Signing commit with key: %s", *g.signingKey)
-		exec.Command("git", "commit", "--amend", "--no-edit", "--gpg-sign="+*g.signingKey).Run()
+		if err := g.signCommit(); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	println(obj.Hash.String())
