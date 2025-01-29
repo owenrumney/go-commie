@@ -134,11 +134,12 @@ func (g *Git) getCommitBody() string {
 }
 
 func (g *Git) getCommitMsgTitle() string {
-	suggestedTitle, err := g.getBranchName()
+	var suggestedTitle string
+	branchName, err := g.getBranchName()
 	if err != nil {
 		g.log.Debugf("Error getting branch name: %s", err)
-		suggestedTitle = "feat: initial commit"
 	}
+	suggestedTitle = strings.ReplaceAll(branchName, "-", " ")
 
 	if suggestedTitle != "" {
 		suggestedTitle = strings.ReplaceAll(suggestedTitle, "-", " ")
@@ -150,11 +151,19 @@ func (g *Git) getCommitMsgTitle() string {
 				strings.ToUpper(string(title[0]))+strings.ToLower(title[1:]))
 		}
 
+		if suggestedTitle == branchName {
+			// no title parts
+			suggestedTitle = ""
+		}
+
 	}
 
-	useSuggested, err := ui.YesNoQuestion(fmt.Sprintf(`Use suggested title "%s"`, suggestedTitle), true)
-	if err != nil {
-		g.log.Fatal(err)
+	var useSuggested bool
+	if suggestedTitle != "" {
+		useSuggested, err = ui.YesNoQuestion(fmt.Sprintf(`Use suggested title "%s"`, suggestedTitle), true)
+		if err != nil {
+			g.log.Fatal(err)
+		}
 	}
 
 	if useSuggested {

@@ -24,7 +24,7 @@ func GetInput(question string) string {
 
 func GetMultilineInput(question string) string {
 	clearLine()
-	fmt.Printf("\n%s (finish with two empty lines):\n\n - ", question)
+	fmt.Printf("\n%s (finish with two empty lines):\n\n", question)
 
 	reader := bufio.NewReader(os.Stdin)
 	var lines []string
