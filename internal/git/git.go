@@ -3,6 +3,7 @@ package git
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/go-git/go-git/v5"
@@ -23,7 +24,8 @@ var statusMap = map[git.StatusCode]string{
 
 type Git struct {
 	*git.Repository
-	log *logger.Log
+	signingKey *string
+	log        *logger.Log
 }
 
 func New(log *logger.Log) (*Git, error) {
@@ -36,7 +38,20 @@ func New(log *logger.Log) (*Git, error) {
 		return nil, err
 	}
 
-	return &Git{repo, log}, nil
+	cfg, err := repo.Config()
+	if err != nil {
+		return nil, err
+	}
+
+	var signingKey string
+	if cfg.Raw.HasSection("user") {
+		user := cfg.Raw.Section("user")
+		if user.HasOption("signingKey") {
+			signingKey = user.Option("signingKey")
+		}
+	}
+
+	return &Git{repo, &signingKey, log}, nil
 }
 
 func (g *Git) Commit() error {
@@ -122,6 +137,11 @@ func (g *Git) addCommit() error {
 	obj, err := g.Repository.CommitObject(commit)
 	if err != nil {
 		return err
+	}
+
+	if *g.signingKey != "" {
+		g.log.Debugf("Signing commit with key: %s", *g.signingKey)
+		exec.Command("git", "commit", "--amend", "--no-edit", "--gpg-sign="+*g.signingKey).Run()
 	}
 
 	println(obj.Hash.String())
